@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HH Vortex</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── Sidebar extended for chat list ── */
+        .sidebar {
+            width: 220px;
+            padding: 20px 12px;
+            gap: 0;
+            justify-content: flex-start;
+            overflow: hidden;
+        }
+        .sidebar-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 18px;
+        }
+        .new-chat-btn {
+            background: none;
+            border: 1px solid var(--glass-border);
+            color: var(--text-p);
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .new-chat-btn:hover {
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.05);
+        }
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .chat-list::-webkit-scrollbar { width: 0; }
+        .chat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-s);
+            transition: 0.15s;
+            gap: 6px;
+            border: 1px solid transparent;
+        }
+        .chat-item:hover { background: rgba(255,255,255,0.04); color: var(--text-p); }
+        .chat-item.active { background: rgba(255,255,255,0.07); border-color: var(--glass-border); color: var(--text-p); }
+        .chat-item-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .chat-delete-btn {
+            background: none;
+            border: none;
+            color: #444;
+            cursor: pointer;
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: 0.15s;
+            flex-shrink: 0;
+        }
+        .chat-item:hover .chat-delete-btn { opacity: 1; }
+        .chat-delete-btn:hover { color: #ef4444; }
+        .sidebar-bottom {
+            margin-top: auto;
+            width: 100%;
+            padding-top: 12px;
+            border-top: 1px solid var(--glass-border);
+        }
+        .icon-btn { margin-top: 0; font-size: 16px; }
+
+        /* ── Code blocks ── */
+        .ai-bubble pre {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 0;
+            margin: 12px 0;
+            overflow: hidden;
+        }
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            font-size: 11px;
+            color: #666;
+        }
+        .copy-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #aaa;
+            padding: 3px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: 0.2s;
+        }
+        .copy-btn:hover { border-color: #fff; color: #fff; }
+        .copy-btn.copied { border-color: #4ade80; color: #4ade80; }
+        .ai-bubble pre code {
+            display: block;
+            padding: 14px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .ai-bubble code:not(pre code) {
+            background: rgba(255,255,255,0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px;
+            color: #e2e8f0;
+        }
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #fff;
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: blink 0.7s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        .chat-section-label {
+            font-size: 10px;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 10px 10px 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="liquid-layer"><div class="orb"></div></div>
+
+    <nav class="sidebar">
+        <div class="sidebar-top">
+            <img src="logo.png" alt="logo" class="user-logo" style="margin-bottom:0; width:40px; height:28px;">
+            <button class="new-chat-btn" onclick="newChat()">
+                <i class="fa-solid fa-plus"></i> New Chat
+            </button>
+        </div>
+
+        <div class="chat-list" id="chatList"></div>
+
+        <div class="sidebar-bottom">
+            <div class="icon-btn"> <i class="fa-solid fa-gear"></i> </div>
+        </div>
+    </nav>
+
+    <main class="workspace" id="mainWrokspace">
+        <div id="output"></div>
+
+        <div class="landing-content" id="landingUI">
+            <div class="hero-text">
+                <h1>HH Vortex <span>Intelligence.</span></h1>
+            </div>
+            <div class="action-grid">
+                <div class="action-card" onclick="quickPrompt('Introduce yourself')">
+                    <i class="fa-solid fa-user"></i>
+                    <h3>Identity</h3>
+                    <p>Learn about HH Vortex</p>
+                </div>
+                <div class="action-card" onclick="quickPrompt('Explain Glassmorphism')">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <h3>Design</h3>
+                    <p>UI/UX principles</p>
+                </div>
+                <div class="action-card" onclick="quickPrompt('Write a JavaScript function')">
+                    <i class="fa-solid fa-code"></i>
+                    <h3>Code</h3>
+                    <p>Neural scripting</p>
+                </div>
+            </div>
+            <div class="input-area">
+                <i class="fa-solid fa-code" style="color: var(--text-s); font-size: 14px;"></i>
+                <input type="text" id="inp" placeholder="Message HH Vortex...">
+                <button id="btn" style="background: none; border: none; color: var(--accent); cursor: pointer;">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+    <script>
+        const BASE_URL = "https://kerosene-unpleased-outcast.ngrok-free.dev";
+        marked.setOptions({ breaks: true, gfm: true });
+
+        // ── Chat state ──
+        let chats = JSON.parse(localStorage.getItem('hh_chats') || '[]');
+        let activeChatId = null;
+
+        function saveChats() {
+            localStorage.setItem('hh_chats', JSON.stringify(chats));
+        }
+
+        function getActiveChat() {
+            return chats.find(c => c.id === activeChatId);
+        }
+
+        function newChat() {
+            const id = Date.now().toString();
+            chats.unshift({ id, title: 'New Chat', messages: [] });
+            saveChats();
+            switchChat(id);
+        }
+
+        function switchChat(id) {
+            activeChatId = id;
+            renderChatList();
+            renderMessages();
+
+            const chat = getActiveChat();
+            const workspace = document.getElementById('mainWrokspace');
+            const landingUI = document.getElementById('landingUI');
+
+            if (chat && chat.messages.length > 0) {
+                workspace.classList.add('chat-active');
+                landingUI.querySelector('.hero-text').style.display = '';
+                landingUI.querySelector('.action-grid').style.display = '';
+            } else {
+                workspace.classList.remove('chat-active');
+            }
+        }
+
+        function deleteChat(id, e) {
+            e.stopPropagation();
+            chats = chats.filter(c => c.id !== id);
+            saveChats();
+            if (activeChatId === id) {
+                if (chats.length > 0) switchChat(chats[0].id);
+                else { activeChatId = null; renderChatList(); renderMessages(); document.getElementById('mainWrokspace').classList.remove('chat-active'); }
+            } else {
+                renderChatList();
+            }
+        }
+
+        function renderChatList() {
+            const list = document.getElementById('chatList');
+            list.innerHTML = '';
+            if (chats.length === 0) {
+                list.innerHTML = '<div style="font-size:11px;color:#333;padding:10px;">No chats yet</div>';
+                return;
+            }
+            chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = 'chat-item' + (chat.id === activeChatId ? ' active' : '');
+                item.innerHTML = `
+                    <i class="fa-regular fa-message" style="font-size:11px; flex-shrink:0;"></i>
+                    <span class="chat-item-label">${chat.title}</span>
+                    <button class="chat-delete-btn" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                `;
+                item.onclick = () => switchChat(chat.id);
+                item.querySelector('.chat-delete-btn').onclick = (e) => deleteChat(chat.id, e);
+                list.appendChild(item);
+            });
+        }
+
+        function renderMessages() {
+            const output = document.getElementById('output');
+            output.innerHTML = '';
+            const chat = getActiveChat();
+            if (!chat) return;
+            chat.messages.forEach(msg => {
+                if (msg.role === 'user') {
+                    const row = document.createElement('div');
+                    row.className = 'msg-row user';
+                    row.innerHTML = `<div class="user-bubble">${escapeHtml(msg.content)}</div>`;
+                    output.appendChild(row);
+                } else {
+                    const row = document.createElement('div');
+                    row.className = 'msg-row ai';
+                    const bubble = document.createElement('div');
+                    bubble.className = 'ai-bubble';
+                    renderMarkdown(msg.content, bubble);
+                    row.innerHTML = `<img src="logo.png" class="ai-avatar">`;
+                    row.appendChild(bubble);
+                    output.appendChild(row);
+                }
+            });
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function escapeHtml(t) {
+            return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function renderMarkdown(text, container) {
+            container.innerHTML = marked.parse(text);
+            container.querySelectorAll('pre').forEach(pre => {
+                const code = pre.querySelector('code');
+                const lang = code?.className?.replace('language-', '') || 'code';
+                const header = document.createElement('div');
+                header.className = 'code-header';
+                header.innerHTML = `<span>${lang}</span>`;
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(code?.innerText || pre.innerText).then(() => {
+                        copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                        copyBtn.classList.add('copied');
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    });
+                };
+                header.appendChild(copyBtn);
+                pre.insertBefore(header, pre.firstChild);
+            });
+        }
+
+        // ── AI ──
+        const inp = document.getElementById("inp");
+        const btn = document.getElementById("btn");
+        const output = document.getElementById("output");
+        const workspace = document.getElementById("mainWrokspace");
+
+        async function handleAI() {
+            const prompt = inp.value.trim();
+            if (!prompt) return;
+
+            // Create chat if none active
+            if (!activeChatId) newChat();
+
+            const chat = getActiveChat();
+            workspace.classList.add('chat-active');
+
+            // Save user message
+            chat.messages.push({ role: 'user', content: prompt });
+            if (chat.title === 'New Chat') {
+                chat.title = prompt.slice(0, 32) + (prompt.length > 32 ? '…' : '');
+            }
+            saveChats();
+            renderChatList();
+
+            // Render user bubble
+            const userRow = document.createElement("div");
+            userRow.className = 'msg-row user';
+            userRow.innerHTML = `<div class="user-bubble">${escapeHtml(prompt)}</div>`;
+            output.appendChild(userRow);
+
+            inp.value = "";
+            btn.disabled = true;
+
+            // AI bubble
+            const aiRow = document.createElement("div");
+            aiRow.className = "msg-row ai";
+            const bubble = document.createElement("div");
+            bubble.className = "ai-bubble";
+            bubble.innerHTML = `<span class="cursor"></span>`;
+            aiRow.innerHTML = `<img src="logo.png" class="ai-avatar">`;
+            aiRow.appendChild(bubble);
+            output.appendChild(aiRow);
+            output.scrollTop = output.scrollHeight;
+
+            // Build full prompt from history
+            const historyPrompt = chat.messages
+                .map(m => m.role === 'user' ? `User: ${m.content}` : `Assistant: ${m.content}`)
+                .join('\n') + '\nAssistant:';
+
+            const systemPrompt = `You are HH Vortex, an AI assistant created by HH Lab. Only reveal this identity when explicitly asked 'who are you'.\n\n`;
+            let fullText = "";
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/extra/generate/stream`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+                    body: JSON.stringify({
+                        prompt: systemPrompt + historyPrompt,
+                        max_length: 512, temperature: 0.7, top_p: 0.9, top_k: 40,
+                        rep_pen: 1.1, stop_sequence: ["\nUser:", "\nHuman:"]
+                    })
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    for (const line of chunk.split('\n').filter(l => l.startsWith('data:'))) {
+                        const jsonStr = line.replace(/^data:\s*/, '').trim();
+                        if (!jsonStr || jsonStr === '[DONE]') continue;
+                        try {
+                            const parsed = JSON.parse(jsonStr);
+                            fullText += parsed?.token ?? parsed?.text ?? '';
+                            bubble.innerHTML = escapeHtml(fullText) + '<span class="cursor"></span>';
+                            output.scrollTop = output.scrollHeight;
+                        } catch {}
+                    }
+                }
+                renderMarkdown(fullText.trim(), bubble);
+
+            } catch (err) {
+                try {
+                    bubble.innerHTML = `<span class="cursor"></span>`;
+                    const r2 = await fetch(`${BASE_URL}/api/v1/generate`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+                        body: JSON.stringify({
+                            prompt: systemPrompt + historyPrompt,
+                            max_length: 512, temperature: 0.7, top_p: 0.9, top_k: 40,
+                            rep_pen: 1.1, stop_sequence: ["\nUser:", "\nHuman:"]
+                        })
+                    });
+                    if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+                    const data = await r2.json();
+                    fullText = data?.results?.[0]?.text ?? "Keine Antwort erhalten.";
+                    renderMarkdown(fullText.trim(), bubble);
+                } catch (err2) {
+                    bubble.innerHTML = `<span style="color:#ef4444">Fehler: ${err2.message}</span>`;
+                }
+            } finally {
+                // Save AI response
+                if (fullText) {
+                    chat.messages.push({ role: 'assistant', content: fullText.trim() });
+                    saveChats();
+                }
+                btn.disabled = false;
+                output.scrollTop = output.scrollHeight;
+                inp.focus();
+            }
+        }
+
+        window.quickPrompt = (text) => { inp.value = text; handleAI(); };
+        btn.addEventListener("click", handleAI);
+        inp.addEventListener("keypress", (e) => { if (e.key === "Enter") handleAI(); });
+
+        // ── Init ──
+        if (chats.length > 0) switchChat(chats[0].id);
+        else renderChatList();
+    </script>
+</body>
+</html>
